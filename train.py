@@ -6,9 +6,15 @@ args = None
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train ')
-    parser.add_argument('--data-dir', default='/home/teddy/UCF-Train-Val-Test',
-                        help='training data directory')
-    parser.add_argument('--save-dir', default='/home/teddy/vgg',
+    parser.add_argument('--image', type=str, required=True,
+                        help='image filename')
+    parser.add_argument('--tree_pts', type=str, required=True,
+                        help='projected tree points')
+    parser.add_argument('--data_split', type=str, required=True,
+                        help='file containing info about data split')
+    parser.add_argument('--augment', type=bool, default=True,
+                        help='augment train data')
+    parser.add_argument('--save-dir',
                         help='directory to save models.')
 
     parser.add_argument('--lr', type=float, default=1e-5,

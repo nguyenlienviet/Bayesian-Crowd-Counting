@@ -12,6 +12,7 @@ import numpy as np
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from  models.vgg import vgg19
 from datasets.crowd import Crowd
+from datasets.tree import get_datasets
 from losses.bay_loss import Bay_Loss
 from losses.post_prob import Post_Prob
 
@@ -43,6 +44,11 @@ class RegTrainer(Trainer):
                                   args.crop_size,
                                   args.downsample_ratio,
                                   args.is_gray, x) for x in ['train', 'val']}
+
+        self.datasets = dict()
+        self.datasets['train'], self.datasets['val'] = get_datasets(args.image, args.tree_pts, args.data_split,
+                                                                    args.augment)
+
         self.dataloaders = {x: DataLoader(self.datasets[x],
                                           collate_fn=(train_collate
                                                       if x == 'train' else default_collate),
