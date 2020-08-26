@@ -1,15 +1,19 @@
 import torch.utils.data as data
 import numpy as np
 import pandas as pd
-from torchvision import transforms
 import torch
 import rasterio
+import json
+from torchvision import transforms
 
 
 def find_dis(points):
     square = np.sum(points*points, axis=1)
     dis = np.sqrt(np.maximum(square[:, None] - 2*np.matmul(points, points.T) + square[None, :], 0.0))
-    dis = np.mean(np.partition(dis, 3, axis=1)[:, 1:4], axis=1, keepdims=True)
+    if len(dis) > 3:
+        dis = np.sum(np.partition(dis, 3, axis=1)[:, :4], axis=1) / 3
+    else:
+        dis = np.sum(dis, axis=1) / max(len(dis) - 1, 1)
     return dis
 
 
@@ -31,7 +35,7 @@ class Tree(data.Dataset):
                  stride,
                  augment,
                  ):
-        self.image = rasterio.open(image_uri)
+        self.image_uri = image_uri
         self.df_pt = pd.read_csv(annotate_uri)
         self.indices = indices
         self.window_size = window_size
@@ -42,8 +46,9 @@ class Tree(data.Dataset):
             raise ValueError('method must be "train", "val", or "test"')
         self.method = method
 
-        self.patch_shape = _get_patch_shape(self.image.shape, self.window_size,
-                                            self.stride)
+        with rasterio.open(self.image_uri) as image:
+            self.patch_shape = _get_patch_shape(image.shape, self.window_size,
+                                                self.stride)
 
         if self.indices is None:
             self.indices = list(range(
@@ -57,13 +62,20 @@ class Tree(data.Dataset):
         row *= self.stride
         col *= self.stride
 
-        X = self.image.read(window=(row, row + self.window_size))
+        # print(row + self.window_size, col + self.window_size)
+        with rasterio.open(self.image_uri) as image:
+           X = image.read(window=((row, row + self.window_size),
+                                  (col, col + self.window_size))).astype(np.float32)
+           # X = X[:3]
+           # X = X / 256 - .5
+           X -= X.mean((1, 2), keepdims=True)
+           X /= X.std((1, 2), keepdims=True)
         pts = self.df_pt[
             self.df_pt['row'].between(row, row + self.window_size - 1) &
-            self.df_pt['col'].between(col, col + self.window_size - 1)]
+            self.df_pt['col'].between(col, col + self.window_size - 1)].values
 
         if self.method == 'val':
-            return transforms.ToTensor()(X), len(pts), "patch-%d" % self.indices[i]
+            return torch.from_numpy(X), len(pts), "patch-%d" % self.indices[i]
 
         dis = find_dis(pts)
         nearest_dis = np.clip(dis, 4.0, 128.0)
@@ -71,6 +83,7 @@ class Tree(data.Dataset):
         pts_lft_up = pts - nearest_dis[:, None] / 2.0
         pts_rht_down = pts + nearest_dis[:, None] / 2.0
         bboxes = np.concatenate((pts_lft_up, pts_rht_down), axis=1)
+        bboxes -= [row, col, row, col]
 
         inner_areas = calc_inner_areas(bboxes, self.window_size)
         original_areas = nearest_dis * nearest_dis
@@ -80,7 +93,7 @@ class Tree(data.Dataset):
         target = ratios[mask]
         pts = pts[mask]
 
-        return (transforms.ToTensor()(X),
+        return (torch.from_numpy(X),
                 torch.from_numpy(pts.copy()).float(),
                 torch.from_numpy(target.copy()).float(),
                 self.window_size

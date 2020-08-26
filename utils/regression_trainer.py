@@ -16,6 +16,8 @@ from datasets.tree import get_datasets
 from losses.bay_loss import Bay_Loss
 from losses.post_prob import Post_Prob
 
+import matplotlib.pyplot as plt
+import random
 
 def train_collate(batch):
     transposed_batch = list(zip(*batch))
@@ -40,10 +42,6 @@ class RegTrainer(Trainer):
             raise Exception("gpu is not available")
 
         self.downsample_ratio = args.downsample_ratio
-        self.datasets = {x: Crowd(os.path.join(args.data_dir, x),
-                                  args.crop_size,
-                                  args.downsample_ratio,
-                                  args.is_gray, x) for x in ['train', 'val']}
 
         self.datasets = dict()
         self.datasets['train'], self.datasets['val'] = get_datasets(args.image, args.tree_pts, args.data_split,
@@ -91,11 +89,11 @@ class RegTrainer(Trainer):
         for epoch in range(self.start_epoch, args.max_epoch):
             logging.info('-'*5 + 'Epoch {}/{}'.format(epoch, args.max_epoch - 1) + '-'*5)
             self.epoch = epoch
-            self.train_eopch()
+            self.train_epoch()
             if epoch % args.val_epoch == 0 and epoch >= args.val_start:
                 self.val_epoch()
 
-    def train_eopch(self):
+    def train_epoch(self):
         epoch_loss = AverageMeter()
         epoch_mae = AverageMeter()
         epoch_mse = AverageMeter()
@@ -112,6 +110,18 @@ class RegTrainer(Trainer):
 
             with torch.set_grad_enabled(True):
                 outputs = self.model(inputs)
+
+                if (self.epoch % 5 == 0 and self.epoch > 0 and
+                    random.randrange(100) == 0):
+                    fig, (ax1, ax2) = plt.subplots(1, 2)
+                    ax1.imshow(np.squeeze(outputs[0].cpu().detach().numpy()))
+                    reshaped_inputs = np.moveaxis(inputs[0].cpu().numpy(), 0, -1)
+                    ax2.imshow(reshaped_inputs)
+                    fig.savefig(os.path.join(self.save_dir,
+                                             '%d-test%d.png' % (self.epoch,
+                                                 random.randrange(1000000))))
+                    plt.close(fig)
+
                 prob_list = self.post_prob(points, st_sizes)
                 loss = self.criterion(prob_list, targets, outputs)
 
@@ -149,6 +159,15 @@ class RegTrainer(Trainer):
             assert inputs.size(0) == 1, 'the batch size should equal to 1 in validation mode'
             with torch.set_grad_enabled(False):
                 outputs = self.model(inputs)
+
+                # fig, (ax1, ax2) = plt.subplots(1, 2)
+                # ax1.imshow(np.squeeze(outputs.cpu().numpy()[0]))
+                # reshaped_inputs = np.moveaxis(inputs.cpu().numpy()[0], 0, -1)
+                # ax2.imshow(reshaped_inputs)
+                # fig.savefig(os.path.join(self.save_dir,
+                #                          '%d-test%s.png' % (self.epoch, name[0])))
+                # plt.close(fig)
+
                 res = count[0].item() - torch.sum(outputs).item()
                 epoch_res.append(res)
 

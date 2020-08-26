@@ -12,9 +12,7 @@ def parse_args():
                         help='projected tree points')
     parser.add_argument('--data_split', type=str, required=True,
                         help='file containing info about data split')
-    parser.add_argument('--augment', type=bool, default=True,
-                        help='augment train data')
-    parser.add_argument('--save-dir',
+    parser.add_argument('--save-dir', required=True,
                         help='directory to save models.')
 
     parser.add_argument('--lr', type=float, default=1e-5,
@@ -37,10 +35,12 @@ def parse_args():
     parser.add_argument('--device', default='0', help='assign device')
     parser.add_argument('--num-workers', type=int, default=8,
                         help='the num of training process')
+    parser.add_argument('--augment', type=bool, default=True,
+                        help='augment train data')
 
     parser.add_argument('--is-gray', type=bool, default=False,
                         help='whether the input image is gray')
-    parser.add_argument('--crop-size', type=int, default=512,
+    parser.add_argument('--crop-size', type=int, default=256,
                         help='the crop size of the train image')
     parser.add_argument('--downsample-ratio', type=int, default=8,
                         help='downsample ratio')
