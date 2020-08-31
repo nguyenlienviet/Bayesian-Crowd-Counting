@@ -111,11 +111,11 @@ class RegTrainer(Trainer):
             with torch.set_grad_enabled(True):
                 outputs = self.model(inputs)
 
-                if (self.epoch % 5 == 0 and self.epoch > 0 and
-                    random.randrange(100) == 0):
+                if self.epoch % 2 == 0 and random.randrange(10) == 0:
                     fig, (ax1, ax2) = plt.subplots(1, 2)
                     ax1.imshow(np.squeeze(outputs[0].cpu().detach().numpy()))
-                    reshaped_inputs = np.moveaxis(inputs[0].cpu().numpy(), 0, -1)
+                    X = inputs.cpu().numpy()[0][:3] * np.reshape([0.229, 0.224, 0.225], (3, 1, 1)) + np.reshape([0.485, 0.456, 0.406], (3, 1, 1))
+                    reshaped_inputs = np.moveaxis(X, 0, -1)
                     ax2.imshow(reshaped_inputs)
                     fig.savefig(os.path.join(self.save_dir,
                                              '%d-test%d.png' % (self.epoch,

@@ -62,20 +62,18 @@ class Tree(data.Dataset):
         row *= self.stride
         col *= self.stride
 
-        # print(row + self.window_size, col + self.window_size)
         with rasterio.open(self.image_uri) as image:
            X = image.read(window=((row, row + self.window_size),
                                   (col, col + self.window_size))).astype(np.float32)
-           # X = X[:3]
-           # X = X / 256 - .5
-           X -= X.mean((1, 2), keepdims=True)
-           X /= X.std((1, 2), keepdims=True)
+           X = ((X / 256) - np.reshape([0.485, 0.456, 0.406, 0.485], (4, 1, 1))) / np.reshape([0.229, 0.224, 0.225, 0.229], (4, 1, 1))
+
         pts = self.df_pt[
             self.df_pt['row'].between(row, row + self.window_size - 1) &
             self.df_pt['col'].between(col, col + self.window_size - 1)].values
+        pts -= (row, col)
 
         if self.method == 'val':
-            return torch.from_numpy(X), len(pts), "patch-%d" % self.indices[i]
+            return torch.from_numpy(X).float(), len(pts), "patch-%d" % self.indices[i]
 
         dis = find_dis(pts)
         nearest_dis = np.clip(dis, 4.0, 128.0)
@@ -83,7 +81,6 @@ class Tree(data.Dataset):
         pts_lft_up = pts - nearest_dis[:, None] / 2.0
         pts_rht_down = pts + nearest_dis[:, None] / 2.0
         bboxes = np.concatenate((pts_lft_up, pts_rht_down), axis=1)
-        bboxes -= [row, col, row, col]
 
         inner_areas = calc_inner_areas(bboxes, self.window_size)
         original_areas = nearest_dis * nearest_dis
@@ -93,10 +90,10 @@ class Tree(data.Dataset):
         target = ratios[mask]
         pts = pts[mask]
 
-        return (torch.from_numpy(X),
+        return (torch.from_numpy(X).float(),
                 torch.from_numpy(pts.copy()).float(),
                 torch.from_numpy(target.copy()).float(),
-                self.window_size
+                self.window_size,
                 )
 
 

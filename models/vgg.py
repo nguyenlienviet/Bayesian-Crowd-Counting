@@ -29,7 +29,7 @@ class VGG(nn.Module):
 
 def make_layers(cfg, batch_norm=False):
     layers = []
-    in_channels = 4
+    in_channels = 3
     for v in cfg:
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -51,6 +51,14 @@ def vgg19():
         model pre-trained on ImageNet
     """
     model = VGG(make_layers(cfg['E']))
-    # model.load_state_dict(model_zoo.load_url(model_urls['vgg19']), strict=False)
+    model.load_state_dict(model_zoo.load_url(model_urls['vgg19']), strict=False)
+
+    with torch.no_grad():
+        conv_weight = model._modules['features'][0].weight.clone()
+        layer = nn.Conv2d(4, 64, kernel_size=3, stride=1, padding=1)
+        layer.weight[:, :3] = conv_weight
+        layer.weight[:, 3] = conv_weight[:, 0]
+        model._modules['features'][0] = layer
+
     return model
 
