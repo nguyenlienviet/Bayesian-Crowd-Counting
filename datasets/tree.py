@@ -4,6 +4,7 @@ import pandas as pd
 import torch
 import rasterio
 import json
+import os
 from torchvision import transforms
 
 
@@ -90,11 +91,16 @@ class Tree(data.Dataset):
         target = ratios[mask]
         pts = pts[mask]
 
-        return (torch.from_numpy(X).float(),
-                torch.from_numpy(pts.copy()).float(),
-                torch.from_numpy(target.copy()).float(),
-                self.window_size,
-                )
+        if self.method == 'test':
+            return (torch.from_numpy(X).float(),
+                    len(pts),
+                    os.path.basename(self.image_uri).split('.')[0])
+        else:
+            return (torch.from_numpy(X).float(),
+                    torch.from_numpy(pts.copy()).float(),
+                    torch.from_numpy(target.copy()).float(),
+                    self.window_size,
+                    )
 
 
 def _get_patch_shape(image_shape, window_size, stride):
@@ -125,3 +131,20 @@ def get_datasets(image_uri, annotate_uri, split_file, augment=True):
                        False,
                        )
     return train_dataset, val_dataset
+
+def get_test_dataset(image_uri, annotate_uri, split_file):
+    with open(split_file) as f:
+        split_info = json.load(f)
+    window_size = split_info['window_size']
+    stride = split_info['stride']
+
+    test_dataset = Tree(image_uri,
+                         annotate_uri,
+                         split_info['test_indices'],
+                         'test',
+                         window_size,
+                         stride,
+                         False,
+                         )
+    return test_dataset
+
