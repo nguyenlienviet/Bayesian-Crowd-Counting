@@ -12,6 +12,8 @@ def parse_args():
                         help='projected tree points')
     parser.add_argument('--data_split', type=str, required=True,
                         help='file containing info about data split')
+    parser.add_argument('--use_fcn', type=bool, default=False,
+                        help='use FCNs instead of VGG19')
     parser.add_argument('--save-dir', required=True,
                         help='directory to save models.')
 
